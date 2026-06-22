@@ -1,0 +1,43 @@
+name: Claude
+on:
+  pull_request:
+    types: [opened]                 # 1. auto-review new PRs
+  issue_comment:
+    types: [created]                # 2. @claude in PR/issue comments
+  pull_request_review_comment:
+    types: [created]                # 2. @claude in inline review comments
+
+jobs:
+  # 1. Automatic review when a PR is opened
+  auto-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
+          plugins: "code-review@claude-code-plugins"
+          prompt: "/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
+          claude_args: "--max-turns 15"
+
+  # 2. Manual review — triggered by tagging @claude
+  mention:
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: "--max-turns 10"
